@@ -1,9 +1,7 @@
-# genomeAlignMaker
+# vcf2msa
 
-Contains scripts to make nucleotide alignments from genomic polymorphism data. 
+Converts a multiple-sample VCF file to a multiple sequence alignment. Supports regions and masking sites. For example, a VCF or mpileup file can be given which specifies sites with low coverage. For these sites, we may not have sufficient information to assume that samples do not vary from the reference, and would like to instead write an N. 
 
-### altRefMaker.py
-Pulls an 'alternate' reference sequence for all contigs given a VCF file and mpileup file representing depth of coverage for all bases. This is a naive re-implementation of the GATK FastaAlternateReferenceMaker tool.
+In progress- not yet ready for human consumption. 
 
-### alignMaker.pt
-Uses a sliding window down each contig to find regions of the genome which have suitable per-base and per-sample coverage for phylogenetic analysis.
+Documentation to come later :)
