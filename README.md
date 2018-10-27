@@ -12,5 +12,7 @@ Requires:
 - pySAM
 
 Need to BGZIP VCF and TABI-index it:
-'''bgzip file.vcf
-tabix -h -f -p vcf file.vcf.gz'''
+''''
+bgzip file.vcf
+tabix -h -f -p vcf file.vcf.gz
+''''
