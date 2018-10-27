@@ -5,3 +5,12 @@ Converts a multiple-sample VCF file to a multiple sequence alignment. Supports r
 In progress- not yet ready for human consumption. 
 
 Documentation to come later :)
+
+Requires:
+- Python >3
+- pyVCF
+- pySAM
+
+Need to BGZIP VCF and TABI-index it:
+bgzip file.vcf
+tabix -h -f -p vcf file.vcf.gz
