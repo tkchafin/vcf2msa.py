@@ -2,9 +2,13 @@
 
 import re
 import sys
+import subprocess
 import os
 import getopt
 import vcf
+from Bio import SeqIO
+from Bio import AlignIO
+from Bio.Align.Applications import MuscleCommandline
 
 def main():
 	params = parseArgs()
@@ -23,10 +27,10 @@ def main():
 	#Get mask sites for each sample
 	sampleMask = dict(); #dict of dicts of sets!
 	for maskFile in params.mask:
-		print(maskFile)
+		#print(maskFile)
 		base=os.path.basename(maskFile)
 		samp=base.split(".")[0]
-		print(samp)
+		#print(samp)
 		with open(maskFile, 'r') as PILEUP:
 			try:
 				for l in PILEUP:
@@ -83,13 +87,113 @@ def main():
 		for nuc in range(spos, epos):
 			this_pos = dict()
 			for samp in samples:
-				this_pos[samp] = dict()
+				this_pos[samp] = str()
 			#For each sequence:
 			#1. check if any samples have VCF data (write VARIANT)
-			for rec in vfh.fetch(contig, nuc+1, nuc+1):
-				print(rec)
-			#2. check if any samples are masked (write N)
-			#3. if NOT masked, write REF
+			for rec in vfh.fetch(contig, nuc, nuc+1):
+				if int(rec.POS) != int(nuc+1):
+					continue
+					#sys.exit()
+				for ind in rec.samples:
+					name = ind.sample.split(".")[0]
+					if ind.gt_type:
+						if not this_pos[name]:
+							this_pos[name]=genotype_resolve(ind.gt_bases.split("/"),params.indel)
+						else:
+							this_pos[name]=genotype_resolve(ind.gt_bases.split("/"),params.indel, this_pos[name])
+
+						#gt = "".join(sort(ind.gt_bases.split("/")))
+						#print(ind.sample, " : ", ind.gt_bases)
+
+			#3 insert Ns for masked samples at this position
+			for samp in this_pos:
+				if samp in sampleMask:
+					if nuc in sampleMask[samp][contig]:
+						this_pos[samp] = "N"
+
+			#4. if there are insertions,  perform alignment to insert gaps
+			l=int()
+			align=False
+			for gt in this_pos:
+				if not l:
+					l = len(gt)
+				else:
+					if len(gt) != l:
+						align=True
+						break
+			if align==True:
+				#print("aligning")
+				this_pos = muscle_align(this_pos)
+			#print(this_pos)
+
+			#5 if no allele chosen, write REF allele
+			for samp in this_pos:
+				if not this_pos[samp] or this_pos[samp] == "":
+					this_pos[samp] = sequence[nuc]
+
+			#6 buffer more N's if position is longer than 1 nucleotide
+			maxlen = 1
+			for key in this_pos:
+				if len(this_pos[key]) > maxlen:
+					maxlen = len(this_pos[key])
+			if maxlen > 1:
+				for samp in this_pos:
+					if samp in sampleMask:
+						if nuc in sampleMask[samp][contig]:
+							new = repeat_to_length("N", maxlen)
+							this_pos[samp] = new
+
+
+			#7 add new bases to output string for contig/region
+			for samp in this_pos:
+				outputs[samp] += this_pos[samp]
+
+			outFas = "contig_"+str(contig)+".fasta"
+			if params.region:
+				outFas = "contig_"+str(params.region.chr)+"_"+str(params.region.start)+"-"+str(params.region.end)+".fasta"
+			with open(outFas, 'w') as fh:
+				try:
+					for sample in outputs:
+						to_write = ">" + str(sample) + "\n" + outputs[sample] + "\n"
+						fh.write(to_write)
+
+				except IOError as e:
+					print("Could not read file:",e)
+					sys.exit(1)
+				except Exception as e:
+					print("Unexpected error:",e)
+					sys.exit(1)
+				finally:
+					fh.close()
+
+
+def repeat_to_length(string_to_expand, length):
+    return (string_to_expand * (int(length/len(string_to_expand))+1))[:length]
+
+#return dict alignment from dict of sequences, run via MUSCLE
+def muscle_align(aln):
+	records = Bio.Align.MultipleSeqAlignment([])
+	for key, seq in aln.iteritems():
+		records.add_sequence(key, seq)
+
+	child = subprocess.Popen(str(cline),
+		stdin=subprocess.PIPE,
+		stdout=subprocess.PIPE,
+		stderr=subprocess.PIPE,
+		universal_newlines=True,
+		shell=(sys.platform!="win32"))
+
+	#write alignment to stdin handle for child process
+	SeqIO.write(records, child.stdin, "fasta")
+	child.stdin.close()
+
+	#read alignment from stdout
+	align = AlignIO.read(child.stdout, "clustal")
+
+	new = dict()
+	for record in align:
+		new[record.id] = record.seq
+	return(new)
 
 
 
@@ -130,6 +234,100 @@ def main():
 	# 		else:
 	# 			print("N",end="")
 	# 	print()
+
+#internal function to resolve genotypes from VCF file
+def genotype_resolve(l, indelPriority, e=None):
+	if e:
+		l.append(e)
+	var=set()
+	indel=set()
+	if len(l) == 1:
+		return(l[0])
+	else:
+		for gt in l:
+			if len(gt) > 1 or gt=="*":
+				if gt=="*":
+					indel.add("-")
+				else:
+					indel.add(gt)
+			else:
+				var.add(gt)
+
+		if indelPriority:
+			if len(indel) == 1:
+				return(next(iter(indel)))
+			if len(indel) > 1:
+				minlen=int()
+				for i in indel:
+					if not minlen:
+						minlen = len(i)
+					else:
+						if minlen > len(i):
+							minlen = len(i)
+				for i in indel:
+					if minlen == len(i):
+						return(i)
+		if len(var) == 1:
+			return(next(iter(var)))
+		elif len(var) > 1:
+			gl = list(var)
+			gl.sort()
+			gt = "".join(gl)
+			return(reverse_iupac_case(gt))
+		elif len(var) < 1:
+			if len(indel)==1:
+				return(next(iter(indel)))
+			elif len(indel) > 1:
+				minlen=int()
+				for i in indel:
+					if not minlen:
+						minlen = len(i)
+					else:
+						if minlen > len(i):
+							minlen = len(i)
+				for i in indel:
+					if minlen == len(i):
+						return(i)
+
+
+#Function to translate a string of bases to an iupac ambiguity code, retains case
+def reverse_iupac_case(char):
+	iupac = {
+		'A':'A',
+		'N':'N',
+		'-':'-',
+		'C':'C',
+		'G':'G',
+		'T':'T',
+		'AG':'R',
+		'CT':'Y',
+		'AC':'M',
+		'GT':'K',
+		'AT':'W',
+		'CG':'S',
+		'CGT':'B',
+		'AGT':'D',
+		'ACT':'H',
+		'ACG':'V',
+		'ACGT':'N',
+		'a':'a',
+		'n':'n',
+		'c':'c',
+		'g':'g',
+		't':'t',
+		'ag':'r',
+		'ct':'y',
+		'ac':'m',
+		'gt':'k',
+		'at':'w',
+		'cg':'s',
+		'cgt':'b',
+		'agt':'d',
+		'act':'h',
+		'acg':'v',
+		'acgt':'n'
+	}
+	return iupac[char]
 
 
 #Read genome as FASTA. FASTA header will be used
@@ -177,7 +375,7 @@ class parseArgs():
 		#Define options
 		try:
 			options, remainder = getopt.getopt(sys.argv[1:], 'r:v:m:c:R:hs:', \
-			["vcf=", "help", "ref=", "mask=","cov=","reg="])
+			["vcf=", "help", "ref=", "mask=","cov=","reg=", "indel"])
 		except getopt.GetoptError as err:
 			print(err)
 			self.display_help("\nExiting because getopt returned non-zero exit status.")
@@ -188,6 +386,7 @@ class parseArgs():
 		self.mask = list()
 		self.cov=1
 		self.region=None
+		self.indel=False
 
 		#First pass to see if help menu was called
 		for o, a in options:
@@ -212,6 +411,8 @@ class parseArgs():
 				self.region = ChromRegion(arg)
 			elif opt in ('h', 'help'):
 				pass
+			elif opt in ('indel'):
+				self.indel=True
 			else:
 				assert False, "Unhandled option %r"%opt
 
@@ -240,6 +441,7 @@ class parseArgs():
 		-m,--mask	: Per-sample mpileup file (one for each sample) for ALL sites (-aa in samtools)
 		-c,--cov	: Minimum coverage to call a base as REF [default=1]
 		-R,--reg	: Region to sample (e.g. chr1:1-1000)
+		--indel		: In cases where indel conflicts with SNP call, give precedence to indel
 		-h,--help	: Displays help menu
 """)
 		print()
