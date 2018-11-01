@@ -73,6 +73,17 @@ As I've mentioned, you should ideally specify per-sample mpileup files, and only
 #NOTE: No spaces allowed in the "-R" call
 python3 ./vcf2msa.py -r <reference.fasta> -v <joint.vcf.gz> -R chr1:2050-10500 -m sample1.mpileup -m sample2.mpileup -m sample3.mpileup <...> -c 5
 ```
+When doing this, you may find that vcf2msa.py runs very slow with large mpileup files- that is because I parse these files line by line to 1) find sites contained within the desired region; and 2) which fail the coverage threshold. To make this faster, you could use some bash commands to parse it down, or even do the coverage filtering yourself beforehand:
+```
+#just strip sites on wrong chromosome
+grep "chr1" sample1.mpileup > sample1.subset.mpileup
+
+#strip sites outside of the desired region:
+grep "chr1" sample1.mpileup | awk '$2 > 2050 && $2 < 10500{print $0}' > sample1.subset.mpileup
+
+#filter based on coverage
+awk '$2 < 5{print $0}' sample1.mpileup > sample1.subset.mpileup
+```
 
 One final note: In cases where individuals are heterozygous for an indel AND a single-nucleotide substitution, the default behavior is to retain the SNP and ignore the indel. You can change this by setting an indel priority with <--indel>. Another default behavior is if an individual is heterozygous for two indels of different lengths, the shorter will always be retained. There is not currently a way built-in to change this.
 
@@ -85,3 +96,4 @@ This script is a naive replication of the GATK FastaAlternateReferenceMaker tool
 # To do:
 - Figure out a way to index the mpileup files? Taking too long to parse
 - Documentation for altRefMaker.py
+- Basic tutorial on creating the inputs
