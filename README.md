@@ -16,3 +16,5 @@ Need to BGZIP VCF and TABI-index it:
 bgzip file.vcf
 tabix -h -f -p vcf file.vcf.gz
 ```
+
+Note: figure out a way to index the mpileup files? Taking too long to parse
