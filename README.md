@@ -1,6 +1,8 @@
 # vcf2msa
 
-Converts a multiple-sample VCF file to a multiple sequence alignment. Supports regions and masking sites based on coverage. For example, a VCF or mpileup file can be given which specifies sites with low coverage. For these sites, we may not have sufficient information to assume that samples do not vary from the reference, and would like to instead write an N. This is meant to essentially perform the task of GATK's FastaAlternateReferenceMaker, but for multiple samples at once, in order to facilitate phylogenetic analysis. 
+Converts a multiple-sample VCF file to a multiple sequence alignment. Supports masking sites based on low coverage, by providing per-sample mpileup files. For these sites, we may not have sufficient information to assume that samples do not vary from the reference, and would like to instead write an N. 
+
+This is meant to essentially perform the task of GATK's FastaAlternateReferenceMaker, but for multiple samples at once, in order to facilitate phylogenetic analysis. 
 
 The code contained in this repository is provided for free via the GPL license, and is not guaranteed in any way. Use at your own risk.
 
@@ -87,6 +89,11 @@ awk '$2 < 5{print $0}' sample1.mpileup > sample1.subset.mpileup
 
 One final note: In cases where individuals are heterozygous for an indel AND a single-nucleotide substitution, the default behavior is to retain the SNP and ignore the indel. You can change this by setting an indel priority with <--indel>. Another default behavior is if an individual is heterozygous for two indels of different lengths, the shorter will always be retained. There is not currently a way built-in to change this.
 
+In cases of >1 base indels, vcf2msa.py will locally re-align around the indel, to determine optimal gap placement, using MUSCLE. If this is the case, you will also need to have MUSCLE installed:
+
+```
+conda install -c bioconda muscle
+```
 
 # altRefMaker.py
 
