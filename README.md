@@ -4,6 +4,8 @@ Converts a multiple-sample VCF file to a multiple sequence alignment. Supports m
 
 This is meant to essentially perform the task of GATK's FastaAlternateReferenceMaker, but for multiple samples at once, in order to facilitate phylogenetic analysis. 
 
+I've also included some associated scripts.
+
 The code contained in this repository is provided for free via the GPL license, and is not guaranteed in any way. Use at your own risk.
 
 ### Dependencies
