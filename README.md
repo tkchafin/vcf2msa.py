@@ -1,4 +1,4 @@
-# vcf2msa
+# vcf2msa.py - Extracting multiple sequence alignments from VCF
 
 Converts a multiple-sample VCF file to a multiple sequence alignment. Supports masking sites based on low coverage, by providing per-sample mpileup files. For these sites, we may not have sufficient information to assume that samples do not vary from the reference, and would like to instead write an N. 
 
@@ -93,6 +93,46 @@ In cases of >1 base indels, vcf2msa.py will locally re-align around the indel, t
 
 ```
 conda install -c bioconda muscle
+```
+
+# findBreaksVCF.py
+
+You can use this script as a first-pass to delimit regions to extract alignments. In my pipeline, I find 'recombinatorial genes', or blocks of homogenous topology, using the MDL approach (see https://github.com/nstenz/TICR#mdl). This method finds breakpoints in a long (e.g. chromosomal) alignment using parsimony. To first create alignments for this, I recommend splitting your alignments into 'regions' representing a large number of parsimony-informative sites (since with the MDL approach these are the only sites carrying information). This is necessary to ease computation, since the number of sites with chromosomal and whole-genome alignments can easily get very large. 
+
+This script defined 'breakpoints' in your VCF file as determined by a hard limit on number of parsimony-informative sites. 
+
+```
+uaf90168:vcf2msa tkchafin$ python3 ./findBreaksVCF.py 
+
+Must provide VCF file <-v,--vcf>
+
+findBreaksVCF.py
+
+Contact:Tyler K. Chafin, University of Arkansas,tkchafin@uark.edu
+
+Usage:  ./findBreaksVCF.py -v <input.vcf> -f <100000>
+
+Description: Breaks chromosomes into chunks of X parsimony-informative sites, for running MDL
+
+	Arguments:
+		-v,--vcf	: VCF file for parsing
+		-f,--force	: Number of PIS to force a break
+		-h,--help	: Displays help menu
+```
+
+To delimit breaks every 100,000 parsimony-informative sites, you would run it like so:
+
+```
+python3 ./findBreaksVCF.py -v joint.vcf -f 100000
+```
+
+The script will output a 'regions' file like so:
+```
+chr1:1-53445
+chr1:53446-120054
+...
+...
+...
 ```
 
 # altRefMaker.py
