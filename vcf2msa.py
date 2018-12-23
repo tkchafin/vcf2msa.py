@@ -60,6 +60,7 @@ def main():
 				sys.exit(1)
 			finally:
 				PILEUP.close()
+	print("Found mask files:",sampleMask.keys())
 
 	vfh = vcf.Reader(filename=params.vcf)
 	samples = list()
@@ -67,6 +68,7 @@ def main():
 		s = samp.split(".")[0]
 		if s not in samples:
 			samples.append(s)
+	print("Found samples:",samples)
 
 	for contig, sequence in reference.items():
 		outputs = dict()
