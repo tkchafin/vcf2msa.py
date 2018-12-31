@@ -21,14 +21,14 @@ def main():
 			if contig[0].split()[0] == params.region.chr:
 				name = contig[0].split()[0]
 				fout = "contig_"+str(name)+".fasta"
-				if path.exists(fout) and self.force==False:
+				if path.exists(fout) and params.force==False:
 					print("Output file for contig",name,"already exists, skipping it:",fout)
 				else:
 					reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
 		else:
 			name = contig[0].split()[0]
 			fout = "contig_"+str(name)+".fasta"
-			if path.exists(fout):
+			if path.exists(fout) and params.force==False:
 				print("Output file for contig",name,"already exists, skipping it:",fout)
 			else:
 				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
