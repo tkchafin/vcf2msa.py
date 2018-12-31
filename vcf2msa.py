@@ -19,12 +19,23 @@ def main():
 		if params.region:
 			if contig[0].split()[0] == params.region.chr:
 				name = contig[0].split()[0]
-				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
+				fout = "contig_"+str(name)+".fasta"
+				if fout.isfile() and self.force==False:
+					print("Output file for contig",name,"already exists, skipping it:",fout)
+				else:
+					reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
 		else:
 			name = contig[0].split()[0]
-			reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
+			fout = "contig_"+str(name)+".fasta"
+			if fout.isfile() and self.force==False:
+				print("Output file for contig",name,"already exists, skipping it:",fout)
+			else:
+				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
 
 	#Get mask sites for each sample
+	if len(reference) < 1:
+		print("No contigs found.")
+		sys.exit(0)
 	sampleMask = dict(); #dict of dicts of sets!
 	for maskFile in params.mask:
 		#print(maskFile)
@@ -377,7 +388,7 @@ class parseArgs():
 		#Define options
 		try:
 			options, remainder = getopt.getopt(sys.argv[1:], 'r:v:m:c:R:hs:', \
-			["vcf=", "help", "ref=", "mask=","cov=","reg=", "indel"])
+			["vcf=", "help", "ref=", "mask=","cov=","reg=", "indel", "force"])
 		except getopt.GetoptError as err:
 			print(err)
 			self.display_help("\nExiting because getopt returned non-zero exit status.")
@@ -389,6 +400,7 @@ class parseArgs():
 		self.cov=1
 		self.region=None
 		self.indel=False
+		self.force=False
 
 		#First pass to see if help menu was called
 		for o, a in options:
@@ -401,20 +413,22 @@ class parseArgs():
 			arg = arg.strip()
 			opt = opt.replace("-","")
 			#print(opt,arg)
-			if opt in ('v', 'vcf'):
+			if opt == "v" or opt == "vcf":
 				self.vcf = arg
-			elif opt in ('c','cov'):
+			elif opt == "c" or opt == "cov":
 				self.cov=int(arg)
-			elif opt in ('m','mask'):
+			elif opt == "m" or opt == "mask":
 				self.mask.append(arg)
-			elif opt in ('r','ref'):
+			elif opt =="r" or opt == "ref":
 				self.ref=arg
-			elif opt in ('R', 'reg'):
+			elif opt == "R" or opt == "reg":
 				self.region = ChromRegion(arg)
-			elif opt in ('h', 'help'):
+			elif opt == "h" or opt == "help":
 				pass
-			elif opt in ('indel'):
+			elif opt == 'indel':
 				self.indel=True
+			elif opt == "force":
+				self.force=True
 			else:
 				assert False, "Unhandled option %r"%opt
 
@@ -444,6 +458,7 @@ class parseArgs():
 		-c,--cov	: Minimum coverage to call a base as REF [default=1]
 		-R,--reg	: Region to sample (e.g. chr1:1-1000)
 		--indel		: In cases where indel conflicts with SNP call, give precedence to indel
+		--force		: Overwrite existing alignment files
 		-h,--help	: Displays help menu
 """)
 		print()
