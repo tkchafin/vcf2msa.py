@@ -21,6 +21,7 @@ def main():
 			if contig[0].split()[0] == params.region.chr:
 				name = contig[0].split()[0]
 				fout = "contig_"+str(name)+".fasta"
+				print("Checking if",fout,"exists")
 				if path.exists(fout) and params.force==False:
 					print("Output file for contig",name,"already exists, skipping it:",fout)
 				else:
@@ -28,6 +29,7 @@ def main():
 		else:
 			name = contig[0].split()[0]
 			fout = "contig_"+str(name)+".fasta"
+			print("Checking if",fout,"exists")
 			if path.exists(fout) and params.force==False:
 				print("Output file for contig",name,"already exists, skipping it:",fout)
 			else:
