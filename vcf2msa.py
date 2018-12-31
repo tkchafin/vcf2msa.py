@@ -20,17 +20,21 @@ def main():
 			if contig[0].split()[0] == params.region.chr:
 				name = contig[0].split()[0]
 				fout = "contig_"+str(name)+".fasta"
-				if fout.isfile() and self.force==False:
+				try:
+					fh = open(fout, 'r')
+				except FileNotFoundError:
 					print("Output file for contig",name,"already exists, skipping it:",fout)
-				else:
-					reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
+					sys.exit(1)
+				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
 		else:
 			name = contig[0].split()[0]
 			fout = "contig_"+str(name)+".fasta"
-			if fout.isfile() and self.force==False:
+			try:
+				fh = open(fout, 'r')
+			except FileNotFoundError:
 				print("Output file for contig",name,"already exists, skipping it:",fout)
-			else:
-				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
+				sys.exit(1)
+			reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
 
 	#Get mask sites for each sample
 	if len(reference) < 1:
