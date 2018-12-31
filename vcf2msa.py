@@ -6,6 +6,7 @@ import subprocess
 import os
 import getopt
 import vcf
+from os import path
 from Bio import SeqIO
 from Bio import AlignIO
 from Bio.Align.Applications import MuscleCommandline
@@ -20,21 +21,17 @@ def main():
 			if contig[0].split()[0] == params.region.chr:
 				name = contig[0].split()[0]
 				fout = "contig_"+str(name)+".fasta"
-				try:
-					fh = open(fout, 'r')
-				except FileNotFoundError:
+				if path.exists(fout) and self.force==False:
 					print("Output file for contig",name,"already exists, skipping it:",fout)
-					sys.exit(1)
-				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
+				else:
+					reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
 		else:
 			name = contig[0].split()[0]
 			fout = "contig_"+str(name)+".fasta"
-			try:
-				fh = open(fout, 'r')
-			except FileNotFoundError:
+			if path.exists(fout):
 				print("Output file for contig",name,"already exists, skipping it:",fout)
-				sys.exit(1)
-			reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
+			else:
+				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
 
 	#Get mask sites for each sample
 	if len(reference) < 1:
