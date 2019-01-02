@@ -20,10 +20,10 @@ def main():
 		if params.region:
 			if contig[0].split()[0] == params.region.chr:
 				name = contig[0].split()[0]
-				fout = "contig_"+str(name)+".fasta"
+				fout = "contig_"+str(params.region.chr)+"_"+str(params.region.start)+"-"+str(params.region.end)+".fasta"
 				print("Checking if",fout,"exists")
 				if path.exists(fout) and params.force==False:
-					print("Output file for contig",name,"already exists, skipping it:",fout)
+					print("Output file for contig already exists, skipping it:",fout)
 				else:
 					reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
 		else:
@@ -31,7 +31,7 @@ def main():
 			fout = "contig_"+str(name)+".fasta"
 			print("Checking if",fout,"exists")
 			if path.exists(fout) and params.force==False:
-				print("Output file for contig",name,"already exists, skipping it:",fout)
+				print("Output file for contig already exists, skipping it:",fout)
 			else:
 				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
 
@@ -110,6 +110,7 @@ def main():
 			#For each sequence:
 			#1. check if any samples have VCF data (write VARIANT)
 			for rec in vfh.fetch(contig, nuc, nuc+1):
+				print(rec.samples)
 				if int(rec.POS) != int(nuc+1):
 					continue
 					#sys.exit()
@@ -129,14 +130,14 @@ def main():
 						#print(ind.sample, " : ", ind.gt_bases)
 
 			#3 insert Ns for masked samples at this position
-			for samp in this_pos:
+			for samp in samples:
 				if samp in sampleMask:
 					if nuc in sampleMask[samp][contig]:
 						this_pos[samp] = "N"
 
 			#4 if no allele chosen, write REF allele
 			#use REF from VCF if possible, else pull from sequence
-			for samp in this_pos:
+			for samp in samples:
 				if not this_pos[samp] or this_pos[samp] == "":
 					if not ref:
 						this_pos[samp] = sequence[nuc]
@@ -164,7 +165,7 @@ def main():
 				if len(this_pos[key]) > maxlen:
 					maxlen = len(this_pos[key])
 			if maxlen > 1:
-				for samp in this_pos:
+				for samp in samples:
 					if samp in sampleMask:
 						if nuc in sampleMask[samp][contig]:
 							new = repeat_to_length("N", maxlen)
@@ -172,19 +173,29 @@ def main():
 
 			#7 Make sure nothing wonky happened
 			p=False
+			pis=False
 			l=None
+			a=None
 			for key in this_pos:
 				if not l:
 					l = len(this_pos[key])
 				else:
 					if l != len(this_pos[key]):
 						p=True
+				# if not a:
+				# 	if this_pos[key] != "N":
+				# 		a = this_pos[key]
+				# else:
+				# 	if this_pos[key] != "N" and this_pos[key] != a:
+				# 		pis = True
 			if p==True:
 				print("Warning: Alleles not of same length!!!")
 				print(this_pos)
+			# if pis==True:
+			# 	print(this_pos)
 
 			#8 add new bases to output string for contig/region
-			for samp in this_pos:
+			for samp in samples:
 				outputs[samp] += this_pos[samp]
 
 

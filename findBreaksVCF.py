@@ -37,10 +37,15 @@ def main():
 			stop = 1
 			count = 0
 
-		#if this SNP is parsimony-informative
+		#if this SNP
 		if rec.is_snp and not rec.is_monomorphic:
 			#Check if parsimony-informative
 			if is_PIS(rec):
+				# g=list()
+				# for call in rec.samples:
+				# 	if call.gt_bases:
+				# 		g.append(call.gt_bases)
+				# print(g)
 				count+=1
 				#if this is the final PIS, submit region to list
 				if count == params.force:
@@ -75,21 +80,32 @@ def write_regions(f, r):
 
 #Function to check pyVCF record for if parsimony informative or not
 def is_PIS(r):
-	ref=0
-	alt=0
-	for call in r.samples:
-		if call.gt_type:
-			if call.gt_type == 0:
-				ref += 1
-			elif call.gt_type == 1:
-				alt += 1
-			elif call.gt_type == 2:
-				alt += 1
-				ref += 1
-		if ref >= 2 and alt >= 2:
-			return(True)
-	if ref <= 2 and alt <= 2:
-		return(False)
+	counts = dict()
+	for sample in r.samples:
+		if sample.gt_bases:
+			nucs = [x.upper() for x in sample.gt_bases.split("/")]
+			if nucs[0] == nucs[1] and nucs[0] in ["A", "C", "G", "T"]:
+				if not nucs[0] in counts:
+					counts[nucs[0]] = 1
+				else:
+					counts[nucs[0]] += 1
+			else:
+				for a in nucs:
+					if a in ["A", "G", "C", "T"]:
+						if not a in counts:
+							counts[a] = 1
+						else:
+							counts[a] += 1
+	has_two = 0
+	if len(counts.keys()) > 1:
+		for key in counts.keys():
+			if counts[key] >= 2:
+				has_two += 1
+			if has_two >= 2:
+				return(True)
+	return(False)
+
+
 
 #Object to parse command-line arguments
 class parseArgs():
