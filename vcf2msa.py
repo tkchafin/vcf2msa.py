@@ -96,6 +96,8 @@ def main():
 			spos = params.region.start-1
 			epos = params.region.end-1
 			if epos > len(sequence) or spos > (len(sequence)):
+				spos = 0
+				epos = len(sequence)
 				print("WARNING: Specified region outside of bounds: Using full contig",contig)
 		#print(spos, " ", epos)
 
