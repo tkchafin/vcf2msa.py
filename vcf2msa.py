@@ -104,12 +104,17 @@ def main():
 			this_pos = dict()
 			for samp in samples:
 				this_pos[samp] = str()
+			ref=None
 			#For each sequence:
 			#1. check if any samples have VCF data (write VARIANT)
 			for rec in vfh.fetch(contig, nuc, nuc+1):
 				if int(rec.POS) != int(nuc+1):
 					continue
 					#sys.exit()
+				if not ref:
+					ref = rec.REF
+				elif ref != rec.REF:
+					print("Warning! Reference alleles don't match at position %s (contig %s): %s vs. %s" %(rec.POS, contig, ref, rec.REF))
 				for ind in rec.samples:
 					name = ind.sample.split(".")[0]
 					if ind.gt_type:
@@ -127,7 +132,16 @@ def main():
 					if nuc in sampleMask[samp][contig]:
 						this_pos[samp] = "N"
 
-			#4. if there are insertions,  perform alignment to insert gaps
+			#4 if no allele chosen, write REF allele
+			#use REF from VCF if possible, else pull from sequence
+			for samp in this_pos:
+				if not this_pos[samp] or this_pos[samp] == "":
+					if not ref:
+						this_pos[samp] = sequence[nuc]
+					else:
+						this_pos[samp] = ref
+
+			#5. if there are insertions,  perform alignment to insert gaps
 			l=int()
 			align=False
 			for gt in this_pos:
@@ -137,17 +151,12 @@ def main():
 					if len(gt) != l:
 						align=True
 						break
+
 			if align==True:
 				#print("aligning")
 				this_pos = muscle_align(this_pos)
-			#print(this_pos)
 
-			#5 if no allele chosen, write REF allele
-			for samp in this_pos:
-				if not this_pos[samp] or this_pos[samp] == "":
-					this_pos[samp] = sequence[nuc]
-
-			#6 buffer more N's if position is longer than 1 nucleotide
+			#6 replace indels with Ns if they were masked
 			maxlen = 1
 			for key in this_pos:
 				if len(this_pos[key]) > maxlen:
@@ -159,28 +168,41 @@ def main():
 							new = repeat_to_length("N", maxlen)
 							this_pos[samp] = new
 
+			#7 Make sure nothing wonky happened
+			p=False
+			l=None
+			for key in this_pos:
+				if not l:
+					l = len(this_pos[key])
+				else:
+					if l != len(this_pos[key]):
+						p=True
+			if p==True:
+				print("Warning: Alleles not of same length!!!")
+				print(this_pos)
 
-			#7 add new bases to output string for contig/region
+			#8 add new bases to output string for contig/region
 			for samp in this_pos:
 				outputs[samp] += this_pos[samp]
 
-			outFas = "contig_"+str(contig)+".fasta"
-			if params.region:
-				outFas = "contig_"+str(params.region.chr)+"_"+str(params.region.start)+"-"+str(params.region.end)+".fasta"
-			with open(outFas, 'w') as fh:
-				try:
-					for sample in outputs:
-						to_write = ">" + str(sample) + "\n" + outputs[sample] + "\n"
-						fh.write(to_write)
 
-				except IOError as e:
-					print("Could not read file:",e)
-					sys.exit(1)
-				except Exception as e:
-					print("Unexpected error:",e)
-					sys.exit(1)
-				finally:
-					fh.close()
+		outFas = "contig_"+str(contig)+".fasta"
+		if params.region:
+			outFas = "contig_"+str(params.region.chr)+"_"+str(params.region.start)+"-"+str(params.region.end)+".fasta"
+		with open(outFas, 'w') as fh:
+			try:
+				for sample in outputs:
+					to_write = ">" + str(sample) + "\n" + outputs[sample] + "\n"
+					fh.write(to_write)
+
+			except IOError as e:
+				print("Could not read file:",e)
+				sys.exit(1)
+			except Exception as e:
+				print("Unexpected error:",e)
+				sys.exit(1)
+			finally:
+				fh.close()
 
 
 def repeat_to_length(string_to_expand, length):
