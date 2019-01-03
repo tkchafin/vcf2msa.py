@@ -10,6 +10,7 @@ import Bio
 from os import path
 from Bio import SeqIO
 from Bio import AlignIO
+from io import StringIO
 from Bio.Align.Applications import MuscleCommandline
 
 def main():
@@ -163,9 +164,9 @@ def main():
 			#print(this_pos)
 			if align==True:
 				#print("aligning")
-				#print(this_pos)
+				print(this_pos)
 				this_pos = muscle_align(this_pos)
-				#print(this_pos)
+				print(this_pos)
 
 			#6 replace indels with Ns if they were masked
 			maxlen = 1
@@ -239,20 +240,28 @@ def muscle_align(aln):
 	for key, seq in aln.items():
 		records.add_sequence(key, seq)
 
-	cline = MuscleCommandline(clwstrict=True)
-	child = subprocess.Popen(str(cline),
-		stdin=subprocess.PIPE,
-		stdout=subprocess.PIPE,
-		stderr=subprocess.PIPE,
-		universal_newlines=True,
-		shell=(sys.platform!="win32"))
+	#write FASTA as a string in memory
+	handle = StringIO()
+	SeqIO.write(records, handle, "fasta")
+	data = handle.getvalue()
+
+	muscle_cline = MuscleCommandline(clwstrict=True)
+	# child = subprocess.Popen(str(muscle_cline),
+	# 	stdin=subprocess.PIPE,
+	# 	stdout=subprocess.PIPE,
+	# 	stderr=subprocess.PIPE,
+	# 	universal_newlines=True,
+	# 	shell=True)
 
 	#write alignment to stdin handle for child process
-	SeqIO.write(records, child.stdin, "fasta")
-	child.stdin.close()
+	# SeqIO.write(records, child.stdin, "fasta")
+	# child.stdin.close()
+
+	stdout, stderr = muscle_cline(stdin=data)
 
 	#read alignment from stdout
-	align = AlignIO.read(child.stdout, "clustal")
+	#align = AlignIO.read(child.stdout, "clustal")
+	align = AlignIO.read(StringIO(stdout), "clustal")
 
 	new = dict()
 	for record in align:
