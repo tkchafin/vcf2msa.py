@@ -6,6 +6,7 @@ import subprocess
 import os
 import getopt
 import vcf
+import Bio
 from os import path
 from Bio import SeqIO
 from Bio import AlignIO
@@ -42,8 +43,8 @@ def main():
 		s = samp.split(".")[0]
 		if s not in samples:
 			samples.append(s)
-		if s not in sampleMask:
-			sampleMask[s] = dict()
+		# if s not in sampleMask:
+		# 	sampleMask[s] = dict()
 
 	print("Found samples:",samples)
 
@@ -114,7 +115,7 @@ def main():
 			#For each sequence:
 			#1. check if any samples have VCF data (write VARIANT)
 			for rec in vfh.fetch(contig, nuc, nuc+1):
-				print(rec.samples)
+				#print(rec.samples)
 				if int(rec.POS) != int(nuc+1):
 					continue
 					#sys.exit()
@@ -124,11 +125,11 @@ def main():
 					print("Warning! Reference alleles don't match at position %s (contig %s): %s vs. %s" %(rec.POS, contig, ref, rec.REF))
 				for ind in rec.samples:
 					name = ind.sample.split(".")[0]
-					#if ind.gt_type:
-					if not this_pos[name]:
-						this_pos[name]=genotype_resolve(ind.gt_bases.split("/"),params.indel)
-					else:
-						this_pos[name]=genotype_resolve(ind.gt_bases.split("/"),params.indel, this_pos[name])
+					if ind.gt_type:
+						if not this_pos[name]:
+							this_pos[name]=genotype_resolve(ind.gt_bases.split("/"),params.indel)
+						else:
+							this_pos[name]=genotype_resolve(ind.gt_bases.split("/"),params.indel, this_pos[name])
 
 						#gt = "".join(sort(ind.gt_bases.split("/")))
 						#print(ind.sample, " : ", ind.gt_bases)
@@ -156,14 +157,15 @@ def main():
 					l = len(this_pos[key])
 				else:
 					if l != len(this_pos[key]):
+						#otherwise, set for alignment
 						align=True
 
-			print(this_pos)
+			#print(this_pos)
 			if align==True:
-				print("aligning")
-				print(this_pos)
+				#print("aligning")
+				#print(this_pos)
 				this_pos = muscle_align(this_pos)
-				print(this_pos)
+				#print(this_pos)
 
 			#6 replace indels with Ns if they were masked
 			maxlen = 1
@@ -173,9 +175,13 @@ def main():
 			if maxlen > 1:
 				for samp in samples:
 					if samp in sampleMask:
-						if nuc in sampleMask[samp][contig]:
+						if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
 							new = repeat_to_length("N", maxlen)
 							this_pos[samp] = new
+					elif samp not in this_pos:
+						#sample was a multiple-nucleotide deletion
+						new = repeat_to_length("-", maxlen)
+						this_pos[samp] = new
 
 			#7 Make sure nothing wonky happened
 			p=False
@@ -230,9 +236,10 @@ def repeat_to_length(string_to_expand, length):
 #return dict alignment from dict of sequences, run via MUSCLE
 def muscle_align(aln):
 	records = Bio.Align.MultipleSeqAlignment([])
-	for key, seq in aln.iteritems():
+	for key, seq in aln.items():
 		records.add_sequence(key, seq)
 
+	cline = MuscleCommandline(clwstrict=True)
 	child = subprocess.Popen(str(cline),
 		stdin=subprocess.PIPE,
 		stdout=subprocess.PIPE,
@@ -249,7 +256,7 @@ def muscle_align(aln):
 
 	new = dict()
 	for record in align:
-		new[record.id] = record.seq
+		new[record.id] = str(record.seq)
 	return(new)
 
 
