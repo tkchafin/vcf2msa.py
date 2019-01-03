@@ -179,22 +179,25 @@ def main():
 						if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
 							new = repeat_to_length("N", maxlen)
 							this_pos[samp] = new
-					elif samp not in this_pos:
-						#sample was a multiple-nucleotide deletion
-						new = repeat_to_length("-", maxlen)
-						this_pos[samp] = new
+			if samp not in this_pos:
+				#sample was a multiple-nucleotide deletion
+				new = repeat_to_length("-", maxlen)
+				this_pos[samp] = new
 
 			#7 Make sure nothing wonky happened
 			p=False
 			pis=False
 			l=None
 			a=None
-			for key in this_pos:
-				if not l:
-					l = len(this_pos[key])
+			for samp in samples:
+				if samp in keys:
+					if not l:
+						l = len(this_pos[samp])
+					else:
+						if l != len(this_pos[samp]):
+							p=True
 				else:
-					if l != len(this_pos[key]):
-						p=True
+					p=True
 				# if not a:
 				# 	if this_pos[key] != "N":
 				# 		a = this_pos[key]
