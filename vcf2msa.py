@@ -173,6 +173,7 @@ def main():
 			for key in this_pos:
 				if len(this_pos[key]) > maxlen:
 					maxlen = len(this_pos[key])
+					
 			for samp in samples:
 				if samp in this_pos:
 					if maxlen > 1:
@@ -180,6 +181,7 @@ def main():
 							if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
 								new = repeat_to_length("N", maxlen)
 								this_pos[samp] = new
+
 				else:
 					if samp in sampleMask:
 						if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
@@ -211,7 +213,7 @@ def main():
 				# 	if this_pos[key] != "N" and this_pos[key] != a:
 				# 		pis = True
 			if p==True:
-				print("Warning: Alleles not of same length!!!")
+				print("Warning: Something went wrong!")
 				print(this_pos)
 			# if pis==True:
 			# 	print(this_pos)
