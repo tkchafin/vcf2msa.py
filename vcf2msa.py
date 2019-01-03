@@ -173,9 +173,9 @@ def main():
 			for key in this_pos:
 				if len(this_pos[key]) > maxlen:
 					maxlen = len(this_pos[key])
-					
+
 			for samp in samples:
-				if samp in this_pos:
+				if samp in this_pos.keys():
 					if maxlen > 1:
 						if samp in sampleMask:
 							if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
