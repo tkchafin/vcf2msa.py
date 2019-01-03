@@ -34,12 +34,24 @@ def main():
 				print("Output file for contig already exists, skipping it:",fout)
 			else:
 				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
+	#read in samples
+	vfh = vcf.Reader(filename=params.vcf)
+	samples = list()
+	sampleMask = dict() #dict of dict of sets
+	for samp in vfh.samples:
+		s = samp.split(".")[0]
+		if s not in samples:
+			samples.append(s)
+		if s not in sampleMask:
+			sampleMask[s] = dict()
+
+	print("Found samples:",samples)
 
 	#Get mask sites for each sample
 	if len(reference) < 1:
 		print("No contigs found.")
 		sys.exit(0)
-	sampleMask = dict(); #dict of dicts of sets!
+
 	for maskFile in params.mask:
 		#print(maskFile)
 		base=os.path.basename(maskFile)
@@ -75,14 +87,6 @@ def main():
 			finally:
 				PILEUP.close()
 	print("Found mask files:",sampleMask.keys())
-
-	vfh = vcf.Reader(filename=params.vcf)
-	samples = list()
-	for samp in vfh.samples:
-		s = samp.split(".")[0]
-		if s not in samples:
-			samples.append(s)
-	print("Found samples:",samples)
 
 	for contig, sequence in reference.items():
 		outputs = dict()
@@ -120,11 +124,11 @@ def main():
 					print("Warning! Reference alleles don't match at position %s (contig %s): %s vs. %s" %(rec.POS, contig, ref, rec.REF))
 				for ind in rec.samples:
 					name = ind.sample.split(".")[0]
-					if ind.gt_type:
-						if not this_pos[name]:
-							this_pos[name]=genotype_resolve(ind.gt_bases.split("/"),params.indel)
-						else:
-							this_pos[name]=genotype_resolve(ind.gt_bases.split("/"),params.indel, this_pos[name])
+					#if ind.gt_type:
+					if not this_pos[name]:
+						this_pos[name]=genotype_resolve(ind.gt_bases.split("/"),params.indel)
+					else:
+						this_pos[name]=genotype_resolve(ind.gt_bases.split("/"),params.indel, this_pos[name])
 
 						#gt = "".join(sort(ind.gt_bases.split("/")))
 						#print(ind.sample, " : ", ind.gt_bases)
@@ -132,7 +136,7 @@ def main():
 			#3 insert Ns for masked samples at this position
 			for samp in samples:
 				if samp in sampleMask:
-					if nuc in sampleMask[samp][contig]:
+					if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
 						this_pos[samp] = "N"
 
 			#4 if no allele chosen, write REF allele
@@ -145,19 +149,21 @@ def main():
 						this_pos[samp] = ref
 
 			#5. if there are insertions,  perform alignment to insert gaps
-			l=int()
+			l=None
 			align=False
-			for gt in this_pos:
+			for key in this_pos:
 				if not l:
-					l = len(gt)
+					l = len(this_pos[key])
 				else:
-					if len(gt) != l:
+					if l != len(this_pos[key]):
 						align=True
-						break
 
+			print(this_pos)
 			if align==True:
-				#print("aligning")
+				print("aligning")
+				print(this_pos)
 				this_pos = muscle_align(this_pos)
+				print(this_pos)
 
 			#6 replace indels with Ns if they were masked
 			maxlen = 1
