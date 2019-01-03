@@ -214,6 +214,7 @@ def main():
 				# 		pis = True
 			if p==True:
 				print("Warning: Something went wrong!")
+				print("Positions:",nuc)
 				print(this_pos)
 			# if pis==True:
 			# 	print(this_pos)
