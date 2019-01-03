@@ -164,9 +164,9 @@ def main():
 			#print(this_pos)
 			if align==True:
 				#print("aligning")
-				print(this_pos)
+				#print(this_pos)
 				this_pos = muscle_align(this_pos)
-				print(this_pos)
+				#print(this_pos)
 
 			#6 replace indels with Ns if they were masked
 			maxlen = 1
