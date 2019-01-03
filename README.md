@@ -1,6 +1,6 @@
 # vcf2msa.py - Extracting multiple sequence alignments from VCF
 
-Converts a multiple-sample VCF file to a multiple sequence alignment. Supports masking sites based on low coverage, by providing per-sample mpileup files. For these sites, we may not have sufficient information to assume that samples do not vary from the reference, and would like to instead write an N. 
+Converts a multiple-sample VCF file to a multiple sequence alignment. Supports masking sites based on low coverage, by providing per-sample mpileup files. For these sites, we may not have sufficient information to assume that samples do not vary from the reference, and would like to instead write an N. Also supports indels, with indel realignment (to ascertain gap placement) performed in MUSCLE. 
 
 This is meant to essentially perform the task of GATK's FastaAlternateReferenceMaker, but for multiple samples at once, in order to facilitate phylogenetic analysis. 
 
