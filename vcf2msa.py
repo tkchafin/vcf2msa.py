@@ -168,21 +168,27 @@ def main():
 				this_pos = muscle_align(this_pos)
 				#print(this_pos)
 
-			#6 replace indels with Ns if they were masked
+			#6 replace indels with Ns if they were masked, or pad them if removed by MUSCLE
 			maxlen = 1
 			for key in this_pos:
 				if len(this_pos[key]) > maxlen:
 					maxlen = len(this_pos[key])
-			if maxlen > 1:
-				for samp in samples:
+			for samp in samples:
+				if samp in this_pos:
+					if maxlen > 1:
+						if samp in sampleMask:
+							if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
+								new = repeat_to_length("N", maxlen)
+								this_pos[samp] = new
+				else:
 					if samp in sampleMask:
 						if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
 							new = repeat_to_length("N", maxlen)
 							this_pos[samp] = new
-			if samp not in this_pos:
-				#sample was a multiple-nucleotide deletion
-				new = repeat_to_length("-", maxlen)
-				this_pos[samp] = new
+					else:
+						#sample was a multiple-nucleotide deletion
+						new = repeat_to_length("-", maxlen)
+						this_pos[samp] = new
 
 			#7 Make sure nothing wonky happened
 			p=False
@@ -190,7 +196,7 @@ def main():
 			l=None
 			a=None
 			for samp in samples:
-				if samp in keys:
+				if samp in this_pos:
 					if not l:
 						l = len(this_pos[samp])
 					else:
