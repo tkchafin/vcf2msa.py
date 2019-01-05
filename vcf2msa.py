@@ -97,7 +97,6 @@ def main():
 				PILEUP.close()
 
 	print("Found mask files:",sampleMask.keys())
-	sys.exit(0)
 
 	for contig, sequence in reference.items():
 		outputs = dict()
