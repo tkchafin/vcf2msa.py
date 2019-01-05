@@ -36,6 +36,7 @@ def main():
 				print("Output file for contig already exists, skipping it:",fout)
 			else:
 				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
+
 	#read in samples
 	vfh = vcf.Reader(filename=params.vcf)
 	samples = list()
@@ -62,23 +63,29 @@ def main():
 		with open(maskFile, 'r') as PILEUP:
 			try:
 				for l in PILEUP:
+					l = l.strip()
+					if not l:
+						continue
 					line = l.split()
-					chrom = line[0]
-					pos = int(line[1])-1
-					depth = int(line[3])
-					#skip if this isn't the targeted chromosome
-					if params.region:
-						if params.region.chr != chrom:
-							continue
-						if not (params.region.start <= pos+1 <= params.region.end):
-							continue
-					if depth < params.cov:
-						#Add to sampleMask
-						if samp not in sampleMask:
-							sampleMask[samp] = dict()
-						if chrom not in sampleMask[samp]:
-							sampleMask[samp][chrom] = set()
-						sampleMask[samp][chrom].add(pos)
+					if len(line) < 4:
+						print("Warning in file",maskFile," (bad line):",l)
+					else:
+						chrom = line[0]
+						pos = int(line[1])-1
+						depth = int(line[3])
+						#skip if this isn't the targeted chromosome
+						if params.region:
+							if params.region.chr != chrom:
+								continue
+							if not (params.region.start <= pos+1 <= params.region.end):
+								continue
+						if depth < params.cov:
+							#Add to sampleMask
+							if samp not in sampleMask:
+								sampleMask[samp] = dict()
+							if chrom not in sampleMask[samp]:
+								sampleMask[samp][chrom] = set()
+							sampleMask[samp][chrom].add(pos)
 
 			except IOError as e:
 				print("Could not read file %s: %s"%(maskFile,e))
@@ -88,7 +95,9 @@ def main():
 				sys.exit(1)
 			finally:
 				PILEUP.close()
+
 	print("Found mask files:",sampleMask.keys())
+	sys.exit(0)
 
 	for contig, sequence in reference.items():
 		outputs = dict()
