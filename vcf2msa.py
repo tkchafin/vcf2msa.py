@@ -59,6 +59,9 @@ def main():
 		#print(maskFile)
 		base=os.path.basename(maskFile)
 		samp=base.split(".")[0]
+		if samp not in sampleMask:
+			sampleMask[samp] = dict()
+
 		#print(samp)
 		with open(maskFile, 'r') as PILEUP:
 			try:
@@ -81,8 +84,6 @@ def main():
 								continue
 						if depth < params.cov:
 							#Add to sampleMask
-							if samp not in sampleMask:
-								sampleMask[samp] = dict()
 							if chrom not in sampleMask[samp]:
 								sampleMask[samp][chrom] = set()
 							sampleMask[samp][chrom].add(pos)
@@ -171,10 +172,17 @@ def main():
 
 			#print(this_pos)
 			if align==True:
-				#print("aligning")
-				#print(this_pos)
-				this_pos = muscle_align(this_pos)
-				#print(this_pos)
+				old = this_pos
+				try:
+					#print("aligning")
+					#print(this_pos)
+					this_pos = muscle_align(this_pos)
+					#print(this_pos)
+				except ValueError as e:
+					print("Somethign went wrong with MUSCLE call:",e)
+					this_pos = old
+
+
 
 			#6 replace indels with Ns if they were masked, or pad them if removed by MUSCLE
 			maxlen = 1
@@ -183,22 +191,24 @@ def main():
 					maxlen = len(this_pos[key])
 
 			for samp in samples:
-				if samp in this_pos.keys():
+				if samp in this_pos:
 					if maxlen > 1:
 						if samp in sampleMask:
 							if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
 								new = repeat_to_length("N", maxlen)
 								this_pos[samp] = new
+								#print("Set:",this_pos)
 
 				else:
-					if samp in sampleMask:
-						if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
+					if samp in sampleMask and contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
 							new = repeat_to_length("N", maxlen)
 							this_pos[samp] = new
+							#print("Set:",this_pos)
 					else:
 						#sample was a multiple-nucleotide deletion
 						new = repeat_to_length("-", maxlen)
 						this_pos[samp] = new
+						#print("Set:",this_pos)
 
 			#7 Make sure nothing wonky happened
 			p=False
@@ -222,7 +232,7 @@ def main():
 				# 		pis = True
 			if p==True:
 				print("Warning: Something went wrong!")
-				print("Positions:",nuc)
+				print("Position:",nuc)
 				print(this_pos)
 			# if pis==True:
 			# 	print(this_pos)
