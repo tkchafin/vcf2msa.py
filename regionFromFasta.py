@@ -28,8 +28,16 @@ def main():
 	#print("end=",e)
 	newSamps = list()
 	for seq in read_fasta(params.fasta):
-		keep=seq[1][s:e]
-		newSamps.append((seq[0], keep))
+		keep=None
+		if e > len(seq[1]):
+			print("Warning: end coordinate",e,"exceeds sequence length.")
+			keep = seq[1][s:]
+		else:
+			keep=seq[1][s:e]
+		if keep:
+			newSamps.append((seq[0], keep))
+		else:
+			print("No sequence was kept. Something went wrong.")
 
 	write_fasta(params.out,newSamps)
 
