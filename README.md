@@ -13,10 +13,11 @@ The code contained in this repository is provided for free via the GPL license, 
 - pyVCF
 - pySAM
 - BioPython
+- Muscle
 
 The easiest way to install the dependencies is through conda:
 ```
-conda install -c bioconda biopython pyvcf pysam
+conda install -c bioconda biopython pyvcf pysam muscle
 ```
 
 ### Inputs
