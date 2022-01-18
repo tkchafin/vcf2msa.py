@@ -138,12 +138,3 @@ chr1:53446-120054
 ...
 ```
 
-# altRefMaker.py
-
-This script is a naive replication of the GATK FastaAlternateReferenceMaker tool, and is in progress. Use at your own risk.
-
-
-# To do:
-- Figure out a way to index the mpileup files? Taking too long to parse
-- Documentation for altRefMaker.py
-- Basic tutorial on creating the inputs
