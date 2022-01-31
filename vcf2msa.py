@@ -7,6 +7,7 @@ import os
 import getopt
 import vcf
 import Bio
+import urllib.parse
 from os import path
 from Bio import SeqIO
 from Bio import AlignIO
@@ -260,6 +261,80 @@ def main():
 			finally:
 				fh.close()
 
+#Function to split GFF attributes
+def splitAttributes(a):
+	ret = {}
+	for thing in a.split(";"):
+		stuff = thing.split("=")
+		if len(stuff) != 2: continue #Eats error silently, YOLO
+		key = stuff[0].lower()
+		value = stuff[1].lower()
+		ret[key] = value
+	return ret
+
+#Class for holding GFF Record data, no __slots__
+class GFFRecord():
+	def __init__(self, things):
+		self.seqid = "NULL" if things[0] == "." else urllib.parse.unquote(things[0])
+		self.source = "NULL" if things[1] == "." else urllib.parse.unquote(things[1])
+		self.type = "NULL" if things[2] == "." else urllib.parse.unquote(things[2])
+		self.start = "NULL" if things[3] == "." else int(things[3])
+		self.end = "NULL" if things[4] == "." else int(things[4])
+		self.score = "NULL" if things[5] == "." else float(things[5])
+		self.strand = "NULL" if things[6] == "." else urllib.parse.unquote(things[6])
+		self.phase = "NULL" if things[7] == "." else urllib.parse.unquote(things[7])
+		self.attributes = {}
+		if things[8] != "." and things[8] != "":
+			self.attributes = splitAttributes(urllib.parse.unquote(things[8]))
+
+	def getAlias(self):
+		"""Returns value of alias if exists, and False if it doesn't exist"""
+		if 'alias' in self.attributes:
+			return self.attributes['alias']
+		else:
+			return False
+
+#Function to return a GFF record as a dict
+def GFFRecordAsDict(things):
+	rec = {}
+	#Load up dict, and sanitize inputs
+	rec["seqid"] = None if things[0] == "." else urllib.parse.unquote(things[0])
+	rec["source"] = None if things[1] == "." else urllib.parse.unquote(things[1])
+	rec["type"] =  None if things[2] == "." else urllib.parse.unquote(things[2])
+	rec["start"] = None if things[3] == "." else int(things[3])
+	rec["end"] = None if things[4] == "." else int(things[4])
+	rec["score"] = None if things[5] == "." else float(things[5])
+	rec["strand"] = None if things[6] == "." else urllib.parse.unquote(things[6])
+	rec["phase"] = None if things[7] == "." else urllib.parse.unquote(things[7])
+	rec["attributes"] = None if things[8] == "." else splitAttributes(urllib.parse.unquote(things[8]))
+	return rec
+
+#function to read a GFF file
+#Generator function, yields individual elements
+def read_gff(g):
+	bad = 0 #tracker for if we have bad lines
+	gf = open(g)
+	try:
+		with gf as file_object:
+			for line in file_object:
+				if line.startswith("#"): continue
+				line = line.strip() #strip leading/trailing whitespace
+				if not line: #skip empty lines
+					continue
+				things = line.split("\t") #split lines
+				if len(things) != 9:
+					if bad == 0:
+						print("Warning: GFF file does not appear to be standard-compatible. See https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md")
+						bad = 1
+						continue
+					elif bad == 1:
+						sys.exit("Fatal error: GFF file does not appear to be standard-compatible. See https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md")
+				#line = utils.removeURL(line) #Sanitize any URLs out
+				rec = GFFRecord(things)
+
+				yield(rec)
+	finally:
+		gf.close()
 
 def repeat_to_length(string_to_expand, length):
     return (string_to_expand * (int(length/len(string_to_expand))+1))[:length]
@@ -477,8 +552,9 @@ class parseArgs():
 	def __init__(self):
 		#Define options
 		try:
-			options, remainder = getopt.getopt(sys.argv[1:], 'r:v:m:c:R:hs:', \
-			["vcf=", "help", "ref=", "mask=","cov=","reg=", "indel", "force"])
+			options, remainder = getopt.getopt(sys.argv[1:], 'r:v:m:c:R:hs:f:g:d', \
+			["vcf=", "help", "ref=", "mask=","cov=","reg=", "indel",
+			"regfle=", "gff=","dp", "force"])
 		except getopt.GetoptError as err:
 			print(err)
 			self.display_help("\nExiting because getopt returned non-zero exit status.")
@@ -534,19 +610,28 @@ class parseArgs():
 			print()
 			print (message)
 		print ("\nvcf2msa.py\n")
-		print ("Contact:Tyler K. Chafin, University of Arkansas,tkchafin@uark.edu")
+		print ("Contact:Tyler K. Chafin, tyler.chafin@colorado.edu")
 		print ("Description: Builds multiple sequence alignments from multi-sample VCF")
 
 		print("""
-	Arguments:
-		-r,--ref	: Reference genome file (FASTA)
+	Mandatory arguments:
+		-f,--fasta	: Reference genome file (FASTA)
 		-v,--vcf	: VCF file containing genotypes
-			Note: Sample names will be taken as everything before "."
-			This is because in my files I have two columns per sample: sample.SNP sample.INDEL
-			Feel free to change this if you don't want this behavior
-		-m,--mask	: Per-sample mpileup file (one for each sample) for ALL sites (-aa in samtools)
+
+	Masking arguments:
 		-c,--cov	: Minimum coverage to call a base as REF [default=1]
-		-R,--reg	: Region to sample (e.g. chr1:1-1000)
+		-m,--mpileup: Per-sample mpileup file (one for each sample) for ALL sites (-aa in samtools)
+		-d,--dp		: Toggle on to get depth from per-sample DP scores in VCF file
+
+	Region selection arguments:
+		-r,--reg	: Region to sample (e.g. chr1:1-1000)
+		-R,--regfile: Text file containing regions to sample (1 per line)
+		-g,--gff	: Input GFF file containing regions to sample
+			Note: All regions in the input file will be sampled, so this file
+			will need to first be filtered to those regions you wish to select.
+			Output files will be names according to the GFF name field
+
+	Other arguments:
 		--indel		: In cases where indel conflicts with SNP call, give precedence to indel
 		--force		: Overwrite existing alignment files
 		-h,--help	: Displays help menu
