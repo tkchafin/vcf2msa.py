@@ -19,17 +19,8 @@ def main():
 
 	#Grab reference sequence first
 	reference = dict()
+	print("Reading reference sequence from".params.ref)
 	for contig in read_fasta(params.ref):
-		if params.region:
-			if contig[0].split()[0] == params.region.chr:
-				name = contig[0].split()[0]
-				fout = "contig_"+str(params.region.chr)+"_"+str(params.region.start)+"-"+str(params.region.end)+".fasta"
-				print("Checking if",fout,"exists")
-				if path.exists(fout) and params.force==False:
-					print("Output file for contig already exists, skipping it:",fout)
-				else:
-					reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
-		else:
 			name = contig[0].split()[0]
 			fout = "contig_"+str(name)+".fasta"
 			print("Checking if",fout,"exists")
@@ -37,6 +28,21 @@ def main():
 				print("Output file for contig already exists, skipping it:",fout)
 			else:
 				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
+
+	#check if regions file
+	if params.regfile:
+
+
+	# if params.region:
+	# 	if contig[0].split()[0] == params.region.chr:
+	# 		name = contig[0].split()[0]
+	# 		fout = "contig_"+str(params.region.chr)+"_"+str(params.region.start)+"-"+str(params.region.end)+".fasta"
+	# 		print("Checking if",fout,"exists")
+	# 		if path.exists(fout) and params.force==False:
+	# 			print("Output file for contig already exists, skipping it:",fout)
+	# 		else:
+	# 			reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
+	# else:
 
 	#read in samples
 	vfh = vcf.Reader(filename=params.vcf)
@@ -552,8 +558,8 @@ class parseArgs():
 	def __init__(self):
 		#Define options
 		try:
-			options, remainder = getopt.getopt(sys.argv[1:], 'r:v:m:c:R:hs:f:g:d', \
-			["vcf=", "help", "ref=", "mask=","cov=","reg=", "indel",
+			options, remainder = getopt.getopt(sys.argv[1:], 'f:v:m:c:R:hs:f:g:d', \
+			["vcf=", "help", "ref=", "fasta=", "mpileup=","cov=","reg=", "indel",
 			"regfle=", "gff=","dp", "force"])
 		except getopt.GetoptError as err:
 			print(err)
@@ -562,9 +568,13 @@ class parseArgs():
 		#Input params
 		self.vcf=None
 		self.ref=None
-		self.mask = list()
+		self.pileupMask=False
+		self.mpileup = list()
+		self.dp=False
 		self.cov=1
 		self.region=None
+		self.gff=None
+		self.regfile=None
 		self.indel=False
 		self.force=False
 
@@ -583,12 +593,19 @@ class parseArgs():
 				self.vcf = arg
 			elif opt == "c" or opt == "cov":
 				self.cov=int(arg)
-			elif opt == "m" or opt == "mask":
-				self.mask.append(arg)
-			elif opt =="r" or opt == "ref":
+			elif opt == "m" or opt == "mpileup":
+				self.pilupMask=True
+				self.mpileup.append(arg)
+			elif opt == "d" or opt == "dp":
+				self.dp=True
+			elif opt =="f" or opt == "fasta":
 				self.ref=arg
-			elif opt == "R" or opt == "reg":
+			elif opt == "r" or opt == "reg":
 				self.region = ChromRegion(arg)
+			elif opt == "R" or opt == "regfile":
+				self.regfile = arg
+			elif opt == "g" or opt == "gff":
+				self.gff = arg
 			elif opt == "h" or opt == "help":
 				pass
 			elif opt == 'indel':
@@ -603,6 +620,8 @@ class parseArgs():
 			self.display_help("Must provide VCF file <-v,--vcf>")
 		if not self.ref:
 			self.display_help("Must provide reference FASTA file <-r,--ref")
+		if self.regfile and len(self.region) > 0:
+			self.display_help("Cannot use both -R and -r")
 
 
 	def display_help(self, message=None):
