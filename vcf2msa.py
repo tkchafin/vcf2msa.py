@@ -30,7 +30,17 @@ def main():
 				reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
 
 	#check if regions file
+	regions=dict()
 	if params.regfile:
+		i=1
+		for r in read_regions(params.regfile):
+			regions["locus"+str(i)] = r
+			i+=1
+	elif params.region:
+		regions["locus1"] = params.region
+	elif params.gff:
+		for r in read_gff(params.gff):
+			regions[r.seqid] = ChromRegion(list(r.))
 
 
 	# if params.region:
@@ -300,20 +310,21 @@ class GFFRecord():
 		else:
 			return False
 
-#Function to return a GFF record as a dict
-def GFFRecordAsDict(things):
-	rec = {}
-	#Load up dict, and sanitize inputs
-	rec["seqid"] = None if things[0] == "." else urllib.parse.unquote(things[0])
-	rec["source"] = None if things[1] == "." else urllib.parse.unquote(things[1])
-	rec["type"] =  None if things[2] == "." else urllib.parse.unquote(things[2])
-	rec["start"] = None if things[3] == "." else int(things[3])
-	rec["end"] = None if things[4] == "." else int(things[4])
-	rec["score"] = None if things[5] == "." else float(things[5])
-	rec["strand"] = None if things[6] == "." else urllib.parse.unquote(things[6])
-	rec["phase"] = None if things[7] == "." else urllib.parse.unquote(things[7])
-	rec["attributes"] = None if things[8] == "." else splitAttributes(urllib.parse.unquote(things[8]))
-	return rec
+#file format:
+#1 per line:
+#chr1:1-1000
+#...
+def read_regions(r):
+	with open(r, 'w') as fh:
+		try:
+			for line in fh:
+				line = line.strip() #strip leading/trailing whitespace
+				if not line: #skip empty lines
+					continue
+				yield(ChromRegion(line))
+		finally:
+			fh.close()
+
 
 #function to read a GFF file
 #Generator function, yields individual elements
@@ -357,17 +368,6 @@ def muscle_align(aln):
 	data = handle.getvalue()
 
 	muscle_cline = MuscleCommandline(clwstrict=True)
-	# child = subprocess.Popen(str(muscle_cline),
-	# 	stdin=subprocess.PIPE,
-	# 	stdout=subprocess.PIPE,
-	# 	stderr=subprocess.PIPE,
-	# 	universal_newlines=True,
-	# 	shell=True)
-
-	#write alignment to stdin handle for child process
-	# SeqIO.write(records, child.stdin, "fasta")
-	# child.stdin.close()
-
 	stdout, stderr = muscle_cline(stdin=data)
 
 	#read alignment from stdout
@@ -518,7 +518,6 @@ def reverse_iupac_case(char):
 #This is a generator function
 #Doesn't matter if sequences are interleaved or not.
 def read_fasta(fas):
-
 	fh = open(fas)
 	try:
 		with fh as file_object:
@@ -558,9 +557,9 @@ class parseArgs():
 	def __init__(self):
 		#Define options
 		try:
-			options, remainder = getopt.getopt(sys.argv[1:], 'f:v:m:c:R:hs:f:g:d', \
+			options, remainder = getopt.getopt(sys.argv[1:], 'f:v:m:c:R:hs:f:g:dF:', \
 			["vcf=", "help", "ref=", "fasta=", "mpileup=","cov=","reg=", "indel",
-			"regfle=", "gff=","dp", "force"])
+			"regfle=", "gff=","dp", "force", "flank=", "id_field="])
 		except getopt.GetoptError as err:
 			print(err)
 			self.display_help("\nExiting because getopt returned non-zero exit status.")
@@ -572,11 +571,13 @@ class parseArgs():
 		self.mpileup = list()
 		self.dp=False
 		self.cov=1
+		self.flank=0
 		self.region=None
 		self.gff=None
 		self.regfile=None
 		self.indel=False
 		self.force=False
+		self.gffid="ID"
 
 		#First pass to see if help menu was called
 		for o, a in options:
@@ -601,11 +602,13 @@ class parseArgs():
 			elif opt =="f" or opt == "fasta":
 				self.ref=arg
 			elif opt == "r" or opt == "reg":
-				self.region = ChromRegion(arg)
+				self.region = arg
 			elif opt == "R" or opt == "regfile":
 				self.regfile = arg
 			elif opt == "g" or opt == "gff":
 				self.gff = arg
+			elif opt == "F" or opt == "flank":
+				self.flank=int(arg)
 			elif opt == "h" or opt == "help":
 				pass
 			elif opt == 'indel':
@@ -622,7 +625,8 @@ class parseArgs():
 			self.display_help("Must provide reference FASTA file <-r,--ref")
 		if self.regfile and len(self.region) > 0:
 			self.display_help("Cannot use both -R and -r")
-
+		if not self.regfile and not self.region and not self.gff:
+			self.display_help("No regions selected")
 
 	def display_help(self, message=None):
 		if message is not None:
@@ -643,6 +647,7 @@ class parseArgs():
 		-d,--dp		: Toggle on to get depth from per-sample DP scores in VCF file
 
 	Region selection arguments:
+		Must use one of:
 		-r,--reg	: Region to sample (e.g. chr1:1-1000)
 		-R,--regfile: Text file containing regions to sample (1 per line)
 		-g,--gff	: Input GFF file containing regions to sample
@@ -651,6 +656,9 @@ class parseArgs():
 			Output files will be names according to the GFF name field
 
 	Other arguments:
+		-F,--flank	: Integer representing number of bases to add on either sides of selected regions [default=0]
+		--id_field	: Field in GFF attributes (last column) giving the identifier to keep
+				NOTE: Can list multiple (to be concatenated) like so: --id_field ID,Name
 		--indel		: In cases where indel conflicts with SNP call, give precedence to indel
 		--force		: Overwrite existing alignment files
 		-h,--help	: Displays help menu
