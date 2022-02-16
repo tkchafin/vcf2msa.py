@@ -19,11 +19,11 @@ def main():
 
 	#Grab reference sequence first
 	reference = dict()
-	print("Reading reference sequence from".params.ref)
+	print("Reading reference sequence from", params.ref)
 	for contig in read_fasta(params.ref):
 			name = contig[0].split()[0]
 			fout = "contig_"+str(name)+".fasta"
-			print("Checking if",fout,"exists")
+			#print("Checking if",fout,"exists")
 			if path.exists(fout) and params.force==False:
 				print("Output file for contig already exists, skipping it:",fout)
 			else:
@@ -34,13 +34,24 @@ def main():
 	if params.regfile:
 		i=1
 		for r in read_regions(params.regfile):
-			regions["locus"+str(i)] = r
+			regions["locus_"+str(i)] = r
 			i+=1
 	elif params.region:
-		regions["locus1"] = params.region
-	elif params.gff:
-		for r in read_gff(params.gff):
-			regions[r.seqid] = ChromRegion(list(r.))
+		if params.regname:
+			regions[params.regname] = ChromRegion(params.region)
+		else:
+			params.regname = "locus_1"
+			regions["locus_1"] = ChromRegion(params.region)
+	# elif params.gff:
+	# 	i=1
+	# 	for r in read_gff(params.gff):
+	# 		if params.gffid in r.attributes:
+	# 			name=r.attributes[params.gffid]
+	# 		else:
+	# 			name="locus_"+str(i)
+	# 		regions[name] = ChromRegion( str(str(r.seqid) + ":" + str(r.start) + "-" + str(r.stop) ) )
+	# 		i+=1
+	# 	print(regions)
 
 
 	# if params.region:
@@ -72,49 +83,50 @@ def main():
 		print("No contigs found.")
 		sys.exit(0)
 
-	for maskFile in params.mask:
-		#print(maskFile)
-		base=os.path.basename(maskFile)
-		samp=base.split(".")[0]
-		if samp not in sampleMask:
-			sampleMask[samp] = dict()
+	if params.pileupMask:
+		for maskFile in params.mask:
+			#print(maskFile)
+			base=os.path.basename(maskFile)
+			samp=base.split(".")[0]
+			if samp not in sampleMask:
+				sampleMask[samp] = dict()
 
-		#print(samp)
-		with open(maskFile, 'r') as PILEUP:
-			try:
-				for l in PILEUP:
-					l = l.strip()
-					if not l:
-						continue
-					line = l.split()
-					if len(line) < 4:
-						print("Warning in file",maskFile," (bad line):",l)
-					else:
-						chrom = line[0]
-						pos = int(line[1])-1
-						depth = int(line[3])
-						#skip if this isn't the targeted chromosome
-						if params.region:
-							if params.region.chr != chrom:
-								continue
-							if not (params.region.start <= pos+1 <= params.region.end):
-								continue
-						if depth < params.cov:
-							#Add to sampleMask
-							if chrom not in sampleMask[samp]:
-								sampleMask[samp][chrom] = set()
-							sampleMask[samp][chrom].add(pos)
+			#print(samp)
+			with open(maskFile, 'r') as PILEUP:
+				try:
+					for l in PILEUP:
+						l = l.strip()
+						if not l:
+							continue
+						line = l.split()
+						if len(line) < 4:
+							print("Warning in file",maskFile," (bad line):",l)
+						else:
+							chrom = line[0]
+							pos = int(line[1])-1
+							depth = int(line[3])
+							#skip if this isn't the targeted chromosome
+							if params.region:
+								if regions[params.regname].chr != chrom:
+									continue
+								if not (regions[params.regname].start <= pos+1 <= regions[params.regname].end):
+									continue
+							if depth < params.cov:
+								#Add to sampleMask
+								if chrom not in sampleMask[samp]:
+									sampleMask[samp][chrom] = set()
+								sampleMask[samp][chrom].add(pos)
 
-			except IOError as e:
-				print("Could not read file %s: %s"%(maskFile,e))
-				sys.exit(1)
-			except Exception as e:
-				print("Unexpected error reading file %s: %s"%(maskFile,e))
-				sys.exit(1)
-			finally:
-				PILEUP.close()
+				except IOError as e:
+					print("Could not read file %s: %s"%(maskFile,e))
+					sys.exit(1)
+				except Exception as e:
+					print("Unexpected error reading file %s: %s"%(maskFile,e))
+					sys.exit(1)
+				finally:
+					PILEUP.close()
 
-	print("Found mask files:",sampleMask.keys())
+		print("Found mask files:",sampleMask.keys())
 
 	for contig, sequence in reference.items():
 		outputs = dict()
@@ -123,10 +135,10 @@ def main():
 		spos = 0
 		epos = len(sequence)
 		if params.region:
-			if contig != params.region.chr:
+			if contig != regions[params.regname].chr:
 				continue
-			spos = params.region.start-1
-			epos = params.region.end-1
+			spos = regions[params.regname].start-1
+			epos = regions[params.regname].end-1
 			if epos > len(sequence) or spos > (len(sequence)):
 				spos = 0
 				epos = len(sequence)
@@ -162,10 +174,11 @@ def main():
 						#print(ind.sample, " : ", ind.gt_bases)
 
 			#3 insert Ns for masked samples at this position
-			for samp in samples:
-				if samp in sampleMask:
-					if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
-						this_pos[samp] = "N"
+			if params.pileupMask:
+				for samp in samples:
+					if samp in sampleMask:
+						if contig in sampleMask[samp] and nuc in sampleMask[samp][contig]:
+							this_pos[samp] = "N"
 
 			#4 if no allele chosen, write REF allele
 			#use REF from VCF if possible, else pull from sequence
@@ -261,7 +274,7 @@ def main():
 
 		outFas = "contig_"+str(contig)+".fasta"
 		if params.region:
-			outFas = "contig_"+str(params.region.chr)+"_"+str(params.region.start)+"-"+str(params.region.end)+".fasta"
+			outFas = "contig_"+str(regions[params.regname].chr)+"_"+str(regions[params.regname].start)+"-"+str(regions[params.regname].end)+".fasta"
 		with open(outFas, 'w') as fh:
 			try:
 				for sample in outputs:
@@ -557,9 +570,10 @@ class parseArgs():
 	def __init__(self):
 		#Define options
 		try:
-			options, remainder = getopt.getopt(sys.argv[1:], 'f:v:m:c:R:hs:f:g:dF:', \
+			options, remainder = getopt.getopt(sys.argv[1:], 'f:v:m:c:R:hs:f:g:dF:r:', \
 			["vcf=", "help", "ref=", "fasta=", "mpileup=","cov=","reg=", "indel",
-			"regfle=", "gff=","dp", "force", "flank=", "id_field="])
+			"regfile=", "gff=","dp", "force", "flank=", "id_field=",
+			"regname="])
 		except getopt.GetoptError as err:
 			print(err)
 			self.display_help("\nExiting because getopt returned non-zero exit status.")
@@ -573,6 +587,7 @@ class parseArgs():
 		self.cov=1
 		self.flank=0
 		self.region=None
+		self.regname=None
 		self.gff=None
 		self.regfile=None
 		self.indel=False
@@ -595,7 +610,7 @@ class parseArgs():
 			elif opt == "c" or opt == "cov":
 				self.cov=int(arg)
 			elif opt == "m" or opt == "mpileup":
-				self.pilupMask=True
+				self.pileupMask=True
 				self.mpileup.append(arg)
 			elif opt == "d" or opt == "dp":
 				self.dp=True
@@ -611,6 +626,8 @@ class parseArgs():
 				self.flank=int(arg)
 			elif opt == "h" or opt == "help":
 				pass
+			elif opt == "regname":
+				self.regname=arg
 			elif opt == 'indel':
 				self.indel=True
 			elif opt == "force":
