@@ -84,7 +84,7 @@ def main():
 		sys.exit(0)
 
 	if params.pileupMask:
-		for maskFile in params.mask:
+		for maskFile in params.mpileup:
 			#print(maskFile)
 			base=os.path.basename(maskFile)
 			samp=base.split(".")[0]
