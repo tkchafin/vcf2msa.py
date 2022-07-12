@@ -9,6 +9,8 @@ import vcf
 import Bio
 import urllib.parse
 from os import path
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 from Bio import AlignIO
 from io import StringIO
@@ -371,9 +373,10 @@ def repeat_to_length(string_to_expand, length):
 
 #return dict alignment from dict of sequences, run via MUSCLE
 def muscle_align(aln):
-	records = Bio.Align.MultipleSeqAlignment([])
+	temp=list()
 	for key, seq in aln.items():
-		records.add_sequence(key, seq)
+		temp.append(SeqRecord(Seq(seq), key, key, "NA"))
+	records = Bio.Align.MultipleSeqAlignment(temp)
 
 	#write FASTA as a string in memory
 	handle = StringIO()
