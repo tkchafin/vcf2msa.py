@@ -52,31 +52,44 @@ vcf2msa.py
 Contact:Tyler K. Chafin, University of Arkansas,tkchafin@uark.edu
 Description: Builds multiple sequence alignments from multi-sample VCF
 
-	Arguments:
-		-r,--ref	: Reference genome file (FASTA)
+	Mandatory arguments:
+		-f,--fasta	: Reference genome file (FASTA)
 		-v,--vcf	: VCF file containing genotypes
-			Note: Sample names will be taken as everything before "."
-			This is because in my files I have two columns per sample: sample.SNP sample.INDEL
-			Feel free to change this if you don't want this behavior
-		-m,--mask	: Per-sample mpileup file (one for each sample) for ALL sites (-aa in samtools)
+
+	Masking arguments:
 		-c,--cov	: Minimum coverage to call a base as REF [default=1]
-		-R,--reg	: Region to sample (e.g. chr1:1-1000)
+		-m,--mpileup: Per-sample mpileup file (one for each sample) for ALL sites (-aa in samtools)
+		-d,--dp		: Toggle on to get depth from per-sample DP scores in VCF file
+
+	Region selection arguments:
+		Must use one of:
+		-r,--reg	: Region to sample (e.g. chr1:1-1000)
+		-R,--regfile: Text file containing regions to sample (1 per line, e.g. chr1:1-1000)
+		-g,--gff	: Input GFF file containing regions to sample
+			Note: All regions in the input file will be sampled, so this file
+			will need to first be filtered to those regions you wish to select.
+			Output files will be names according to the GFF name field
+
+	Other arguments:
+		-F,--flank	: Integer representing number of bases to add on either sides of selected regions [default=0]
+		--id_field	: Field in GFF attributes (last column) giving the identifier to keep
+				NOTE: Can list multiple (to be concatenated) like so: --id_field ID,Name
 		--indel		: In cases where indel conflicts with SNP call, give precedence to indel
+		--force		: Overwrite existing alignment files
 		-h,--help	: Displays help menu
-    
 ```
 vcf2msa.py can either build an MSA file for each contig, or you can specify a region. I recommend specifying regions as parsing the whole files will take a long time. For example, if you wanted to fetch an MSA for chromosome 1 (chr1) positions 2050-10500, you could do:
 
 ```
 #NOTE: No spaces allowed in the "-R" call
-python3 ./vcf2msa.py -r <reference.fasta> -v <joint.vcf.gz> -R chr1:2050-10500
+python3 ./vcf2msa.py -f <reference.fasta> -v <joint.vcf.gz> -r chr1:2050-10500
 ```
 
 As I've mentioned, you should ideally specify per-sample mpileup files, and only call bases above some threshold coverage, and treat low (or null) coverage sites as ambiguous. To only call bases which have a coverage of 5 or greater, you could do:
 
 ```
 #NOTE: No spaces allowed in the "-R" call
-python3 ./vcf2msa.py -r <reference.fasta> -v <joint.vcf.gz> -R chr1:2050-10500 -m sample1.mpileup -m sample2.mpileup -m sample3.mpileup <...> -c 5
+python3 ./vcf2msa.py -f <reference.fasta> -v <joint.vcf.gz> -r chr1:2050-10500 -m sample1.mpileup -m sample2.mpileup -m sample3.mpileup <...> -c 5
 ```
 When doing this, you may find that vcf2msa.py runs very slow with large mpileup files- that is because I parse these files line by line to 1) find sites contained within the desired region; and 2) which fail the coverage threshold. To make this faster, you could use some bash commands to parse it down, or even do the coverage filtering yourself beforehand:
 ```
