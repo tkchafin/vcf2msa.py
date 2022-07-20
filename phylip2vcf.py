@@ -10,8 +10,9 @@ from collections import Counter
 
 def main():
 
-	header="##fileformat=VCFv4\n"
-	header=header + "##Spoofed VCF created by phylip2vcf.py\n"
+	header="##fileformat=VCFv4.0\n"
+	header=header + "##source=phylip2vcf.py\n"
+	header=header + "FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
 	header=header + "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT"
 
 	contig="SPOOF"
