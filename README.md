@@ -10,15 +10,17 @@ The code contained in this repository is provided for free via the GPL license, 
 
 ### Dependencies
 - Python >3
-- pyVCF
+- pyVCF3
 - pySAM
 - BioPython
 - Muscle
 
 The easiest way to install the dependencies is through conda:
 ```
-conda install -c bioconda biopython pyvcf pysam muscle
+conda install -c bioconda biopython pyvcf3 pysam muscle
 ```
+
+Note vcf2msa.py now requires [PyVCF3](https://github.com/dridk/PyVCF3) as the original PyVCF is no longer maintained.
 
 ### Inputs
 
