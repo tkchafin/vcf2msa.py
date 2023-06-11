@@ -643,8 +643,6 @@ class parseArgs():
 			self.display_help("Must provide VCF file <-v,--vcf>")
 		if not self.ref:
 			self.display_help("Must provide reference FASTA file <-r,--ref")
-		if self.regfile and len(self.region) > 0:
-			self.display_help("Cannot use both -R and -r")
 		if not self.regfile and not self.region and not self.gff:
 			self.display_help("No regions selected")
 
