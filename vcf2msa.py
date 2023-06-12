@@ -12,9 +12,9 @@ from os import path
 from Bio import SeqIO
 from Bio import AlignIO
 from io import StringIO
-from Bio.Align.Applications import MuscleCommandline
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+import subprocess
 
 
 def main():
@@ -33,27 +33,6 @@ def main():
         else:
             params.regname = "locus_1"
             regions["locus_1"] = ChromRegion(params.region)
-    # elif params.gff:
-    # 	i=1
-    # 	for r in read_gff(params.gff):
-    # 		if params.gffid in r.attributes:
-    # 			name=r.attributes[params.gffid]
-    # 		else:
-    # 			name="locus_"+str(i)
-    # 		regions[name] = ChromRegion( str(str(r.seqid) + ":" + str(r.start) + "-" + str(r.stop) ) )
-    # 		i+=1
-    # 	print(regions)
-
-    # if params.region:
-    # 	if contig[0].split()[0] == params.region.chr:
-    # 		name = contig[0].split()[0]
-    # 		fout = "contig_"+str(params.region.chr)+"_"+str(params.region.start)+"-"+str(params.region.end)+".fasta"
-    # 		print("Checking if",fout,"exists")
-    # 		if path.exists(fout) and params.force==False:
-    # 			print("Output file for contig already exists, skipping it:",fout)
-    # 		else:
-    # 			reference[name] = contig[1] #don't forget: 0-based index here, 1-based in VCF
-    # else:
 
     # Grab reference sequence first
     reference = dict()
@@ -225,7 +204,7 @@ def main():
                     try:
                         # print("aligning")
                         # print(this_pos)
-                        this_pos = muscle_align(this_pos)
+                        this_pos = clustalo_align(this_pos)
                         # print(this_pos)
                     except ValueError as e:
                         print("Somethign went wrong with MUSCLE call:", e)
@@ -403,75 +382,45 @@ def repeat_to_length(string_to_expand, length):
 # return dict alignment from dict of sequences, run via MUSCLE
 
 
-def muscle_align(aln):
+import subprocess
+
+def clustalo_align(aln):
     max_len = 0
     for key, seq in aln.items():
         max_len = max(max_len, len(seq))
     records = Bio.Align.MultipleSeqAlignment([])
     for key, seq in aln.items():
-        #records.add_sequence(key, seq)
-        # update to new version of BioPython - YL
         seq = seq.ljust(max_len, '-')
-        records.append(SeqRecord(Seq(seq), id=key))
+        records.append(SeqRecord(Seq(seq), id=key, description=''))  # empty description
 
     # write FASTA as a string in memory
     handle = StringIO()
     SeqIO.write(records, handle, "fasta")
     data = handle.getvalue()
 
-    muscle_cline = MuscleCommandline(clwstrict=True)
-    stdout, stderr = muscle_cline(stdin=data)
+    # invoke clustalo with Popen
+    process = subprocess.Popen(['clustalo', '-i', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate(input=data.encode())
 
-    # read alignment from stdout
-    # align = AlignIO.read(child.stdout, "clustal")
-    align = AlignIO.read(StringIO(stdout), "clustal")
-
+    # Check if there was an error running clustalo
+    if process.returncode != 0:
+        print("Error running Clustal Omega:")
+        print(stderr.decode())
+    else:
+        # clustalo was successful, so try to read the output as an alignment
+        try:
+            data = StringIO(stdout.decode())
+            alignment = AlignIO.read(data, "fasta")
+        except Exception as e:
+            print("Error reading Clustal Omega output as an alignment:")
+            print(e)
     new = dict()
-    for record in align:
+    for record in alignment:
         new[record.id] = str(record.seq)
     return(new)
 
-    # #Parse VCF to grab genotypes
-    # #Note this doesn't pay attention to samples. just keeps all ALT alleles
-    # for rec in vfh:
-    # 	chrom = rec.CHROM
-    # 	pos = int(rec.POS)-1
-    # 	allele = rec.ALT
-    # 	chosen = rec.ALT[0]
-    #
-    # 	#if more than one ALT allele, choose shortest
-    # 	#(i.e. SNP over indel, or shortest indel)
-    # 	#or keep first if equal
-    # 	if len(allele) > 1:
-    # 		for a in allele:
-    # 			if len(a) < len(chosen):
-    # 				chosen = a
-    #
-    # 	if chrom not in data:
-    # 		pass
-    # 	else:
-    # 		if pos < len(data[chrom][1]):
-    # 			data[chrom][1][pos] = chosen
-    #
-    # #For each position in chromosome, write new one for sample
-    # for chrom, seq in reference.items():
-    # 	print(">%s_%s"%(chrom, params.sample))
-    # 	for position, nuc in enumerate(seq):
-    # 		if int(data[chrom][0][position]) >= params.cov:
-    # 			if data[chrom][1][position] != None:
-    # 				if data[chrom][1][position] == "*":
-    # 					pass
-    # 				else:
-    # 					print(str(data[chrom][1][position]), end="")
-    # 			else:
-    # 				print(nuc, end="")
-    # 		else:
-    # 			print("N",end="")
-    # 	print()
 
 # internal function to resolve genotypes from VCF file
-
-
 def genotype_resolve(l, indelPriority, e=None):
     if e:
         l.append(e)
@@ -629,11 +578,9 @@ class parseArgs():
         self.flank = 0
         self.region = None
         self.regname = None
-        self.gff = None
         self.regfile = None
         self.indel = False
         self.force = False
-        self.gffid = "ID"
 
         # First pass to see if help menu was called
         for o, a in options:
@@ -661,8 +608,6 @@ class parseArgs():
                 self.region = arg
             elif opt == "R" or opt == "regfile":
                 self.regfile = arg
-            elif opt == "g" or opt == "gff":
-                self.gff = arg
             elif opt == "F" or opt == "flank":
                 self.flank = int(arg)
             elif opt == "h" or opt == "help":
@@ -711,15 +656,9 @@ class parseArgs():
 		Must use one of:
 		-r,--reg	: Region to sample (e.g. chr1:1-1000)
 		-R,--regfile: Text file containing regions to sample (1 per line, e.g. chr1:1-1000)
-		-g,--gff	: Input GFF file containing regions to sample
-			Note: All regions in the input file will be sampled, so this file
-			will need to first be filtered to those regions you wish to select.
-			Output files will be names according to the GFF name field
 
 	Other arguments:
 		-F,--flank	: Integer representing number of bases to add on either sides of selected regions [default=0]
-		--id_field	: Field in GFF attributes (last column) giving the identifier to keep
-				NOTE: Can list multiple (to be concatenated) like so: --id_field ID,Name
 		--indel		: In cases where indel conflicts with SNP call, give precedence to indel
 		--force		: Overwrite existing alignment files
 		-h,--help	: Displays help menu

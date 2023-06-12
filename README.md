@@ -13,11 +13,11 @@ The code contained in this repository is provided for free via the GPL license, 
 - pyVCF3
 - pySAM
 - BioPython
-- Muscle
+- ClustalO
 
 The easiest way to install the dependencies is through conda:
 ```
-conda install -c bioconda biopython pyvcf3 pysam muscle
+conda install -c bioconda biopython pyvcf3 pysam clustalo
 ```
 
 Note vcf2msa.py now requires [PyVCF3](https://github.com/dridk/PyVCF3) as the original PyVCF is no longer maintained.
@@ -67,15 +67,9 @@ Description: Builds multiple sequence alignments from multi-sample VCF
 		Must use one of:
 		-r,--reg	: Region to sample (e.g. chr1:1-1000)
 		-R,--regfile: Text file containing regions to sample (1 per line, e.g. chr1:1-1000)
-		-g,--gff	: Input GFF file containing regions to sample
-			Note: All regions in the input file will be sampled, so this file
-			will need to first be filtered to those regions you wish to select.
-			Output files will be names according to the GFF name field
 
 	Other arguments:
 		-F,--flank	: Integer representing number of bases to add on either sides of selected regions [default=0]
-		--id_field	: Field in GFF attributes (last column) giving the identifier to keep
-				NOTE: Can list multiple (to be concatenated) like so: --id_field ID,Name
 		--indel		: In cases where indel conflicts with SNP call, give precedence to indel
 		--force		: Overwrite existing alignment files
 		-h,--help	: Displays help menu
